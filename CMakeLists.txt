@@ -11,17 +11,21 @@ project(
 include(GNUInstallDirs)
 
 # Automatically get all .cpp, .h and.c files from the src directory
-file(GLOB_RECURSE SRC_FILES
+file(GLOB SRC_FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
 )
+
+
 
 add_library(
     ${PROJECT_NAME} 
     STATIC
 	${SRC_FILES}
 )
+
+find_package(Vulkan REQUIRED)
 
 target_include_directories(
     ${PROJECT_NAME} 
