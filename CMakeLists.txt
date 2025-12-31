@@ -17,7 +17,25 @@ file(GLOB SRC_FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
 )
 
+#For 'src/backends' directory, only need SDL3 and Vulkan specific parts. 
+#Will need to change this if using GLFW or any other window rendering framework
+set(
+    Header_Files
+    "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_sdl3.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_vulkan.h"
+)
 
+set(
+    Source_Files
+    "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
+)
+
+set(
+    ALL_FILES
+    ${Header_Files}
+    ${Source_Files}
+    ${SRC_FILES}
+)
 
 add_library(
     ${PROJECT_NAME} 
@@ -32,5 +50,8 @@ target_include_directories(
     PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan
+                                             SDL3-shared)
 
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
