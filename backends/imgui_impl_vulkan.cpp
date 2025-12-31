@@ -207,7 +207,28 @@ static bool g_FunctionsLoaded = true;
     IMGUI_VULKAN_FUNC_MAP_MACRO(vkResetFences) \
     IMGUI_VULKAN_FUNC_MAP_MACRO(vkUnmapMemory) \
     IMGUI_VULKAN_FUNC_MAP_MACRO(vkUpdateDescriptorSets) \
-    IMGUI_VULKAN_FUNC_MAP_MACRO(vkWaitForFences)
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkWaitForFences) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCreateShadersEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkDestroyShaderEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdBindShadersEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetVertexInputEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetPrimitiveTopologyEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetPrimitiveRestartEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetRasterizerDiscardEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetColorBlendEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetColorBlendEquationEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetColorWriteMaskEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetCullModeEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetFrontFaceEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetDepthTestEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetDepthWriteEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetStencilTestEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetPolygonModeEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetRasterizationSamplesEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetSampleMaskEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetAlphaToCoverageEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetLogicOpEnableEXT) \
+    IMGUI_VULKAN_FUNC_MAP_MACRO(vkCmdSetDepthBiasEnableEXT)
 
 // Define function pointers
 #define IMGUI_VULKAN_FUNC_DEF(func) static PFN_##func func;
@@ -261,6 +282,10 @@ struct ImGui_ImplVulkan_Data
     VkDescriptorSetLayout       DescriptorSetLayout;
     VkPipelineLayout            PipelineLayout;
     VkPipeline                  Pipeline;
+
+    VkShaderEXT                 ShaderVert;
+    VkShaderEXT                 ShaderFrag;
+
     VkShaderModule              ShaderModuleVert;
     VkShaderModule              ShaderModuleFrag;
     VkDescriptorPool            DescriptorPool;
@@ -468,8 +493,85 @@ static void CreateOrResizeBuffer(VkBuffer& buffer, VkDeviceMemory& buffer_memory
 static void ImGui_ImplVulkan_SetupRenderState(ImDrawData* draw_data, VkPipeline pipeline, VkCommandBuffer command_buffer, ImGui_ImplVulkan_FrameRenderBuffers* rb, int fb_width, int fb_height)
 {
     ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+    const ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
 
+    if (v->UseShaderObjects)
+    {
+        VkShaderStageFlagBits stages[2] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT };
+        VkShaderEXT shaders[2] = { bd->ShaderVert, bd->ShaderFrag };
+        vkCmdBindShadersEXT(command_buffer, 2, stages, shaders);
+
+        // 1. Vertex Input State
+        VkVertexInputBindingDescription2EXT binding_desc = {};
+        binding_desc.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+        binding_desc.binding = 0;
+        binding_desc.stride = sizeof(ImDrawVert);
+        binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        binding_desc.divisor = 1;
+
+        VkVertexInputAttributeDescription2EXT attr_desc[3] = {};
+        // Pos
+        attr_desc[0].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+        attr_desc[0].location = 0;
+        attr_desc[0].binding = 0;
+        attr_desc[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attr_desc[0].offset = offsetof(ImDrawVert, pos);
+        // UV
+        attr_desc[1].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+        attr_desc[1].location = 1;
+        attr_desc[1].binding = 0;
+        attr_desc[1].format = VK_FORMAT_R32G32_SFLOAT;
+        attr_desc[1].offset = offsetof(ImDrawVert, uv);
+        // Color
+        attr_desc[2].sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+        attr_desc[2].location = 2;
+        attr_desc[2].binding = 0;
+        attr_desc[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attr_desc[2].offset = offsetof(ImDrawVert, col);
+
+        vkCmdSetVertexInputEXT(command_buffer, 1, &binding_desc, 3, attr_desc);
+
+        // 2. Input Assembly
+        vkCmdSetPrimitiveTopologyEXT(command_buffer, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        vkCmdSetPrimitiveRestartEnableEXT(command_buffer, VK_FALSE);
+
+        // 3. Rasterization
+        vkCmdSetRasterizerDiscardEnableEXT(command_buffer, VK_FALSE);
+        vkCmdSetPolygonModeEXT(command_buffer, VK_POLYGON_MODE_FILL);
+        vkCmdSetCullModeEXT(command_buffer, VK_CULL_MODE_NONE);
+        vkCmdSetFrontFaceEXT(command_buffer, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        vkCmdSetDepthBiasEnableEXT(command_buffer, VK_FALSE);
+
+        // 4. Multisample (Default to 1 or user provided)
+        VkSampleCountFlagBits samples = (v->PipelineInfoMain.MSAASamples != 0) ? v->PipelineInfoMain.MSAASamples : VK_SAMPLE_COUNT_1_BIT;
+        vkCmdSetRasterizationSamplesEXT(command_buffer, samples);
+        //vkCmdSetSampleMaskEXT(command_buffer, samples, nullptr); // nullptr means all bits enabled
+        vkCmdSetAlphaToCoverageEnableEXT(command_buffer, VK_FALSE);
+
+        // 5. Depth/Stencil
+        vkCmdSetDepthTestEnableEXT(command_buffer, VK_FALSE);
+        vkCmdSetDepthWriteEnableEXT(command_buffer, VK_FALSE);
+        vkCmdSetStencilTestEnableEXT(command_buffer, VK_FALSE);
+
+        // 6. Color Blending
+        vkCmdSetLogicOpEnableEXT(command_buffer, VK_FALSE);
+        VkBool32 color_blend_enables = VK_TRUE;
+        vkCmdSetColorBlendEnableEXT(command_buffer, 0, 1, &color_blend_enables);
+
+        VkColorBlendEquationEXT blend_eq = {};
+        blend_eq.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        blend_eq.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        blend_eq.colorBlendOp = VK_BLEND_OP_ADD;
+        blend_eq.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        blend_eq.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        blend_eq.alphaBlendOp = VK_BLEND_OP_ADD;
+        vkCmdSetColorBlendEquationEXT(command_buffer, 0, 1, &blend_eq);
+
+        VkColorComponentFlags write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        vkCmdSetColorWriteMaskEXT(command_buffer, 0, 1, &write_mask);
+    }
     // Bind pipeline:
+    else
     {
         vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }
@@ -1090,6 +1192,12 @@ bool ImGui_ImplVulkan_CreateDeviceObjects()
         check_vk_result(err);
     }
 
+    if (v->UseShaderObjects)
+    {
+        // The Shaders are created inside CreateMainPipeline.
+        ImGui_ImplVulkan_CreateMainPipeline(&v->PipelineInfoMain);
+    }
+
     if (!bd->PipelineLayout)
     {
         // Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
@@ -1143,6 +1251,54 @@ void ImGui_ImplVulkan_CreateMainPipeline(const ImGui_ImplVulkan_PipelineInfo* pi
 {
     ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
     ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
+
+    // Cleanup existing pipeline/shaders
+    if (bd->Pipeline) { vkDestroyPipeline(v->Device, bd->Pipeline, v->Allocator); bd->Pipeline = VK_NULL_HANDLE; }
+    if (bd->ShaderVert) { vkDestroyShaderEXT(v->Device, bd->ShaderVert, v->Allocator); bd->ShaderVert = VK_NULL_HANDLE; }
+    if (bd->ShaderFrag) { vkDestroyShaderEXT(v->Device, bd->ShaderFrag, v->Allocator); bd->ShaderFrag = VK_NULL_HANDLE; }
+
+    // [NEW] Shader Object Creation Path
+    if (v->UseShaderObjects)
+    {
+        VkShaderCreateInfoEXT create_infos[2] = {};
+
+        // Vertex Shader
+        create_infos[0].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
+        create_infos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+        create_infos[0].nextStage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        create_infos[0].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
+        create_infos[0].pCode = __glsl_shader_vert_spv;
+        create_infos[0].codeSize = sizeof(__glsl_shader_vert_spv);
+        create_infos[0].pName = "main";
+        create_infos[0].setLayoutCount = 1;
+        create_infos[0].pSetLayouts = &bd->DescriptorSetLayout;
+        create_infos[0].pushConstantRangeCount = 1;
+        VkPushConstantRange push_constants = { VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 4 };
+        create_infos[0].pPushConstantRanges = &push_constants;
+
+        // Fragment Shader
+        create_infos[1].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
+        create_infos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        create_infos[0].nextStage = 0;
+        create_infos[1].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
+        create_infos[1].pCode = __glsl_shader_frag_spv;
+        create_infos[1].codeSize = sizeof(__glsl_shader_frag_spv);
+        create_infos[1].pName = "main";
+        create_infos[1].setLayoutCount = 1;
+        create_infos[1].pSetLayouts = &bd->DescriptorSetLayout;
+        create_infos[1].pushConstantRangeCount = 1; // Must match vertex for compatibility
+        create_infos[1].pPushConstantRanges = &push_constants;
+
+        VkShaderEXT shaders[2];
+        VkResult err = vkCreateShadersEXT(v->Device, 2, create_infos, v->Allocator, shaders);
+        check_vk_result(err);
+
+        bd->ShaderVert = shaders[0];
+        bd->ShaderFrag = shaders[1];
+
+        return; // Skip standard pipeline creation
+    }
+
     if (bd->Pipeline)
     {
         vkDestroyPipeline(v->Device, bd->Pipeline, v->Allocator);
@@ -1183,6 +1339,10 @@ void    ImGui_ImplVulkan_DestroyDeviceObjects()
     if (bd->TexSamplerLinear)     { vkDestroySampler(v->Device, bd->TexSamplerLinear, v->Allocator); bd->TexSamplerLinear = VK_NULL_HANDLE; }
     if (bd->ShaderModuleVert)     { vkDestroyShaderModule(v->Device, bd->ShaderModuleVert, v->Allocator); bd->ShaderModuleVert = VK_NULL_HANDLE; }
     if (bd->ShaderModuleFrag)     { vkDestroyShaderModule(v->Device, bd->ShaderModuleFrag, v->Allocator); bd->ShaderModuleFrag = VK_NULL_HANDLE; }
+
+    if (bd->ShaderVert) { vkDestroyShaderEXT(v->Device, bd->ShaderVert, v->Allocator); bd->ShaderVert = VK_NULL_HANDLE; }
+    if (bd->ShaderFrag) { vkDestroyShaderEXT(v->Device, bd->ShaderFrag, v->Allocator); bd->ShaderFrag = VK_NULL_HANDLE; }
+
     if (bd->DescriptorSetLayout)  { vkDestroyDescriptorSetLayout(v->Device, bd->DescriptorSetLayout, v->Allocator); bd->DescriptorSetLayout = VK_NULL_HANDLE; }
     if (bd->PipelineLayout)       { vkDestroyPipelineLayout(v->Device, bd->PipelineLayout, v->Allocator); bd->PipelineLayout = VK_NULL_HANDLE; }
     if (bd->Pipeline)             { vkDestroyPipeline(v->Device, bd->Pipeline, v->Allocator); bd->Pipeline = VK_NULL_HANDLE; }
