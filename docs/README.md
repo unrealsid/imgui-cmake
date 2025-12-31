@@ -1,3 +1,6 @@
+This is my fork of the imgui library. I wanted to add CMake Support so it could be downloaded and installed using CMake's FindPackages. 
+The default version does not work for my project.
+
 Dear ImGui
 =====
 
