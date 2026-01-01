@@ -1279,7 +1279,7 @@ void ImGui_ImplVulkan_CreateMainPipeline(const ImGui_ImplVulkan_PipelineInfo* pi
         // Fragment Shader
         create_infos[1].sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT;
         create_infos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        create_infos[0].nextStage = 0;
+        create_infos[1].nextStage = 0;
         create_infos[1].codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
         create_infos[1].pCode = __glsl_shader_frag_spv;
         create_infos[1].codeSize = sizeof(__glsl_shader_frag_spv);
