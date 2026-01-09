@@ -1,5 +1,5 @@
 This is my fork of the imgui library. I wanted to add CMake Support so it could be downloaded and installed using CMake's FindPackages. 
-The default version does not work for my project.
+The default version does not work for my project. I've also modified imgui_impl_vulkan.cpp to work with Vulkan Shader Objects since I don't use legacy pipelines. 
 
 Dear ImGui
 =====

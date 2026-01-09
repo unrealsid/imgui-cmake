@@ -35,11 +35,6 @@ target_include_directories(imgui PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/backends"
 )
 
-target_compile_definitions(imgui PRIVATE
-        IMGUI_IMPL_VULKAN_NO_PROTOTYPES
-        VK_NO_PROTOTYPES
-)
-
 if (TARGET SDL3::SDL3)
     message(STATUS "SDL3 is usable")
 else()
